@@ -4,12 +4,26 @@ import torch
 import argparse
 import json
 import glob
-
+import numpy as np
+import cv2
 from pprint import pprint
 from fvcore.nn import FlopCountAnalysis
 from utils.model_summary import get_model_activation, get_model_flops
 from utils import utils_logger
 from utils import utils_image as util
+
+
+def read_hdr(path, peak=1000.0):
+    hdr = cv2.imread(path, cv2.IMREAD_ANYDEPTH | cv2.IMREAD_UNCHANGED)
+    hdr = hdr[:, :, [2, 1, 0]]  # Convert BGR to RGB
+    hdr = hdr / peak
+    return hdr.astype(np.float32)
+
+def read_ldr(path, gamma=2.2):
+    ldr = cv2.imread(path)
+    ldr = ldr[:, :, [2, 1, 0]]  # Convert BGR to RGB
+    ldr = ldr.astype(np.float32) / 255.0  # normalise to [0, 1]
+    return ldr
 
 
 def select_model(args, device):
@@ -29,11 +43,11 @@ def select_model(args, device):
         model = EFDN()
         model.load_state_dict(torch.load(model_path), strict=True)
     elif model_id == 1:
-        # Team 01: Sayed Nadim
-        from models.sayednadim_ditm import DITM
+        # Team 07: Sayed Nadim
+        from models.team07_ditm import DITM
 
-        name, data_range = "sayednadim_DITM", 1.0
-        model_path = os.path.join("model_zoo", "sayednadim_ditm.pth")
+        name, data_range = f"{model_id:02}_ditm", 1.0
+        model_path = os.path.join("model_zoo", "team07_ditm.pth")
         model = DITM(in_channels=3, out_channels=3, base=32)
         ckpt = torch.load(model_path, map_location=device, weights_only=False)
         state_dict = ckpt.get("model_state_dict", {})
@@ -42,7 +56,7 @@ def select_model(args, device):
             (k[len("module.") :] if k.startswith("module.") else k): v
             for k, v in state_dict.items()
         }
-        model.load_state_dict(new_state)        
+        model.load_state_dict(new_state)
     else:
         raise NotImplementedError(f"Model {model_id} is not implemented.")
 
@@ -78,8 +92,8 @@ def select_model(args, device):
 
 #     return path
 
+
 def select_dataset(data_dir, mode):
-    print(data_dir, mode)
     # inference on your custom dataset structure
     if mode == "test":
         # Assuming you might have a 'test' folder similar to 'valid'
@@ -93,7 +107,7 @@ def select_dataset(data_dir, mode):
             ldr_file = os.path.join(data_dir, "test/jpg", f"{base_name}.jpg")
             if os.path.exists(ldr_file):
                 path.append((ldr_file, hdr_file))  # (low_res, high_res)
-        
+
     elif mode == "valid":
         # hdr_pattern = os.path.join(data_dir, "valid/hdr/*.hdr")
         # hdr_files = sorted(glob.glob(hdr_pattern))
@@ -107,11 +121,11 @@ def select_dataset(data_dir, mode):
                 path.append((ldr_file, hdr_file))  # (low_res, high_res)
     else:
         raise NotImplementedError(f"{mode} is not implemented in select_dataset")
-    
+
     print(f"Found {len(path)} pairs in {mode} mode")
     if len(path) == 0:
         print(f"No matching pairs found. Check your data structure in: {data_dir}")
-    
+
     return path
 
 
@@ -174,43 +188,39 @@ def run(model, model_name, data_range, tile, logger, device, args, mode="test"):
 
     start = torch.cuda.Event(enable_timing=True)
     end = torch.cuda.Event(enable_timing=True)
-    
 
     for i, (img_lr, img_hr) in enumerate(data_path):
 
-        # --------------------------------
-        # (1) img_lr
-        # --------------------------------
         img_name, ext = os.path.splitext(os.path.basename(img_hr))
-        img_lr = util.imread_uint(img_lr, n_channels=3)
-        img_lr = util.uint2tensor4(img_lr, data_range)
+        # img_lr = util.imread_uint(img_lr, n_channels=3)
+        # img_lr = util.uint2tensor4(img_lr, data_range)
+        # img_lr = img_lr.to(device)
+        img_lr = read_ldr(img_lr)
+        img_lr = torch.from_numpy(img_lr).permute(2, 0, 1).unsqueeze(0).to(device)
         img_lr = img_lr.to(device)
 
-        # --------------------------------
-        # (2) img_sr
-        # --------------------------------
         start.record()
         img_sr = forward(img_lr, model, tile)
         end.record()
         torch.cuda.synchronize()
         results[f"{mode}_runtime"].append(start.elapsed_time(end))  # milliseconds
         # img_sr = util.tensor2uint(img_sr, data_range)
-        img_sr = img_sr.squeeze(0).cpu().float().clamp_(0, data_range) / data_range
-        img_sr = (img_sr.permute(1, 2, 0).numpy() * 1000.).astype("float32")
-        
+        img_sr = img_sr.squeeze().permute(1, 2, 0).cpu().numpy()
+        img_sr = (img_sr * 255.0).astype(np.float32)  # Convert to uint16 for HDR
 
-        # --------------------------------
-        # (3) img_hr
-        # --------------------------------
-        img_hr = util.imread_uint(img_hr, n_channels=3)
-        img_hr = img_hr.squeeze()
-        img_hr = util.modcrop(img_hr, sf)
+        # img_hr = util.imread_uint(img_hr, n_channels=3)
+        # img_hr = img_hr.squeeze()
+        # img_hr = util.modcrop(img_hr, sf)
+        img_hr = read_hdr(img_hr, peak=1000.0)
+        img_hr = img_hr * 255.0  # Convert to uint16 for HDR
 
         # --------------------------------
         # PSNR and SSIM
         # --------------------------------
 
         # print(img_sr.shape, img_hr.shape)
+        print("img_hr:", img_hr.max(), img_hr.min())
+        print("img_sr:", img_sr.max(), img_sr.min())
         psnr = util.calculate_psnr(img_sr, img_hr, border=border)
         results[f"{mode}_psnr"].append(psnr)
 
