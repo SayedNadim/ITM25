@@ -30,7 +30,7 @@ google-auth==2.23.3
 google-auth-oauthlib==1.0.0
 gpustat==1.1.1
 grpcio==1.59.0
-h11==0.14.0
+h11==0.16.0
 h5py==3.10.0
 huggingface-hub==0.18.0
 idna==3.4
