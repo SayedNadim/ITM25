@@ -42,7 +42,7 @@ def select_model(args, device):
         model_path = os.path.join("model_zoo", "team00_EFDN.pth")
         model = EFDN()
         model.load_state_dict(torch.load(model_path), strict=True)
-    elif model_id == 1:
+    elif model_id == 7:
         # Team 07: Sayed Nadim
         from models.team07_ditm import DITM
 
@@ -422,7 +422,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser("AIM2025-ITM")
     parser.add_argument("--data_dir", default="../", type=str)
     parser.add_argument("--save_dir", default="../results", type=str)
-    parser.add_argument("--model_id", default=1, type=int)
+    parser.add_argument("--model_id", default=7, type=int)
     parser.add_argument(
         "--include_test",
         action="store_true",
