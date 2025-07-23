@@ -212,7 +212,7 @@ def run(model, model_name, data_range, tile, logger, device, args, mode="test"):
         # img_hr = img_hr.squeeze()
         # img_hr = util.modcrop(img_hr, sf)
         img_hr = read_hdr(img_hr, peak=1000.0)
-        img_hr = img_hr * 255.0  # Convert to uint8 for HDR
+        img_hr = img_hr * 255.0  # Convert to uint16 for HDR
 
         # --------------------------------
         # PSNR and SSIM
