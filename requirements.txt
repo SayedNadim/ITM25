@@ -119,7 +119,7 @@ tqdm==4.66.1
 triton==2.0.0
 tsnecuda==3.0.1
 typing_extensions==4.5.0
-ujson==5.7.0
+ujson==5.12.0
 urllib3==2.6.3
 uvicorn==0.21.1
 uvloop==0.17.0
