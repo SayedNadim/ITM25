@@ -12,7 +12,7 @@ click==8.1.7
 clip==0.2.0
 cmake==3.27.7
 contourpy==1.1.1
-cryptography==41.0.3
+cryptography==46.0.6
 cycler==0.12.1
 docker-pycreds==0.4.0
 dpcpp-cpp-rt==2024.0.2
