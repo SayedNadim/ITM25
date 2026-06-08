@@ -67,7 +67,7 @@ orjson==3.8.9
 packaging==23.1
 pandas==1.5.3
 pathtools==0.1.2
-Pillow==9.4.0
+Pillow==12.2.0
 portalocker==2.8.2
 protobuf==4.25.8
 psutil==5.9.6
